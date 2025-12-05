@@ -1,6 +1,8 @@
 "use server";
 import { db } from "@/lib/db";
 import { currentUser } from "@clerk/nextjs/server";
+import { Select } from "react-day-picker";
+import { success } from "zod";
 
 export const onBoardUser = async () => {
   try {
@@ -42,5 +44,31 @@ export const onBoardUser = async () => {
       success: false,
       error: "Failed to onboard user",
     };
+  }
+};
+
+export const currentUserRole = async () => {
+  try {
+    const user = await currentUser();
+
+    if (!user) {
+      return { success: false, error: "No authentication user found" };
+    }
+
+    const { id } = user;
+
+    const userRole = await db.user.findUnique({
+      where: {
+        clerkId: id,
+      },
+      Select: {
+        role: true,
+      },
+    });
+
+    return userRole.role;
+  } catch (error) {
+    console.error("❌ Error fetching user role:", error);
+    return { success: false, error: "Failed to fetch user role" };
   }
 };
