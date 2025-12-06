@@ -59,7 +59,7 @@ export const currentUserRole = async () => {
       where: {
         clerkId: id,
       },
-      Select: {
+      select: {
         role: true,
       },
     });
