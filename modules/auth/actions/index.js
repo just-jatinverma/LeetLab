@@ -1,8 +1,6 @@
 "use server";
 import { db } from "@/lib/db";
 import { currentUser } from "@clerk/nextjs/server";
-import { Select } from "react-day-picker";
-import { success } from "zod";
 
 export const onBoardUser = async () => {
   try {
