@@ -1,3 +1,4 @@
+import { getJudge0LanguageId } from "@/lib/judge0";
 import { currentUserRole } from "@/modules/auth/actions";
 import { currentUser } from "@clerk/nextjs/dist/types/server";
 import { UserRole } from "@prisma/client";
@@ -54,6 +55,24 @@ export async function POST(request) {
         },
         { status: 400 },
       );
+    }
+
+    for (const [language, solutionCode] of Object.entries(referenceSolutions)) {
+      const languageId = getJudge0LanguageId(language);
+
+      if (!languageId) {
+        return NextResponse.json(
+          { error: `Unsupported language: ${language}` },
+          { status: 400 },
+        );
+      }
+
+      const submission = testCases.map(({ input, output }) => ({
+        source_code: solutionCode,
+        language_id: languageId,
+        stdin: input,
+        expected_output: output,
+      }));
     }
   } catch (dbError) {
     console.error("Database error:", dbError);
