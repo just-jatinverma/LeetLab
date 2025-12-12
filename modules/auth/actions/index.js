@@ -7,7 +7,7 @@ export const onBoardUser = async () => {
     const user = await currentUser();
 
     if (!user) {
-      return { success: false, error: "No Authenticated User Found" };
+      return { success: false, error: "No authenticated user found" };
     }
 
     const { id, firstName, lastName, imageUrl, emailAddresses } = user;
@@ -31,10 +31,12 @@ export const onBoardUser = async () => {
       },
     });
 
+    console.log("namstey bro");
+
     return {
       success: true,
       user: newUser,
-      message: "User onBoarded Successfully",
+      message: "User onboarded successfully",
     };
   } catch (error) {
     console.error("❌ Error onboarding user:", error);
@@ -50,7 +52,7 @@ export const currentUserRole = async () => {
     const user = await currentUser();
 
     if (!user) {
-      return { success: false, error: "No authentication user found" };
+      return { success: false, error: "No authenticated user found" };
     }
 
     const { id } = user;
@@ -71,7 +73,7 @@ export const currentUserRole = async () => {
   }
 };
 
-export const getCurrentUserData = async () => {
+export const getCurrentUser = async () => {
   try {
     const user = await currentUser();
     const data = await db.user.findUnique({
