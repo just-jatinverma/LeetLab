@@ -31,8 +31,6 @@ export const onBoardUser = async () => {
       },
     });
 
-    console.log("namstey bro");
-
     return {
       success: true,
       user: newUser,
