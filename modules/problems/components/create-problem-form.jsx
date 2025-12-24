@@ -445,7 +445,7 @@ const CodeEditor = ({ value, onChange, language = "javascript" }) => {
       <div className="px-4 py-2 bg-slate-800 border-b text-sm font-mono">
         {language}
       </div>
-      <div className="h-[300px] w-full">
+      <div className="h-75 w-full">
         <Editor
           height="300px"
           defaultLanguage={languageMap[language]}
