@@ -1,4 +1,4 @@
-import { getCurrentUserData } from "@/modules/auth/actions";
+import { getCurrentUser } from "@/modules/auth/actions";
 import PlaylistsSection from "@/modules/profile/components/playlist-section";
 import ProfileStats from "@/modules/profile/components/profile-stats";
 import SolvedProblems from "@/modules/profile/components/solved-problems";
@@ -7,7 +7,7 @@ import UserInfoCard from "@/modules/profile/components/user-info-card";
 import React from "react";
 
 const ProfilePage = async () => {
-  const profileData = await getCurrentUserData();
+  const profileData = await getCurrentUser();
 
   console.log(profileData);
   return (

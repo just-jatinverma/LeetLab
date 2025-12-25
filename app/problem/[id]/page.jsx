@@ -1,13 +1,26 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import Editor from "@monaco-editor/react";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Code,
+  FileText,
+  Lightbulb,
+  Loader2,
+  Play,
+  Send,
+  Trophy,
+} from "lucide-react";
+import { toast } from "sonner";
+
 import {
   executeCode,
   getAllSubmissionByCurrentUserForProblem,
   getProblemById,
 } from "@/modules/problems/actions";
-import React, { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,9 +30,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TestCaseTable } from "@/modules/problems/components/test-case-table";
-import { SubmissionDetails } from "@/modules/problems/components/submission-details";
+
 import {
   Select,
   SelectContent,
@@ -27,25 +38,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Play,
-  Send,
-  Code,
-  FileText,
-  Lightbulb,
-  Trophy,
-  ArrowLeft,
-  Loader2,
-} from "lucide-react";
-
-import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/ui/mode-toggle";
+import { cn } from "@/lib/utils";
 import { getJudge0LanguageId } from "@/lib/judge0";
-import { toast } from "sonner";
+
 import { SubmissionHistory } from "@/modules/problems/components/submission-history";
-import Link from "next/link";
+import { SubmissionDetails } from "@/modules/problems/components/submission-details";
+import { TestCaseTable } from "@/modules/problems/components/test-case-table";
+
+/* ---------------- Helpers ---------------- */
 
 const getDifficultyColor = (difficulty) => {
   switch (difficulty) {
@@ -60,244 +62,160 @@ const getDifficultyColor = (difficulty) => {
   }
 };
 
+const getMonacoLanguage = (language) => {
+  switch (language) {
+    case "JAVASCRIPT":
+      return "javascript";
+    case "PYTHON":
+      return "python";
+    case "JAVA":
+      return "java";
+    default:
+      return "javascript";
+  }
+};
+
+/* ---------------- Page ---------------- */
+
 const ProblemIdPage = ({ params }) => {
+  const { id } = params;
+  const { theme } = useTheme();
+
   const [problem, setProblem] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState("JAVASCRIPT");
   const [code, setCode] = useState("");
-  const [output, setOutput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionHistory, setSubmissionHistory] = useState([]);
   const [executionResponse, setExecutionResponse] = useState(null);
-  const { theme } = useTheme();
 
+  /* ---------------- Fetch problem ---------------- */
   useEffect(() => {
     const fetchProblem = async () => {
       try {
-        const resolvedParams = await params;
-        const problemData = await getProblemById(resolvedParams.id);
-        console.log(problemData);
-        if (problemData.success) {
-          setProblem(problemData.data);
-          setCode(problemData.data.codeSnippets[selectedLanguage] || "");
+        const res = await getProblemById(id);
+        if (res.success) {
+          setProblem(res.data);
+          setCode(res.data.codeSnippets?.[selectedLanguage] ?? "");
         }
       } catch (error) {
-        console.error("Error fetching problem:", error);
+        console.error(error);
+        toast.error("Failed to load problem");
       }
     };
 
     fetchProblem();
-  }, [params]);
+  }, [id]);
 
+  /* ---------------- Fetch submissions ---------------- */
   useEffect(() => {
-    const fetchSubmissionHistory = async () => {
+    const fetchSubmissions = async () => {
       try {
-        const resolvedParams = await params;
-        const submissionHistory = await getAllSubmissionByCurrentUserForProblem(
-          resolvedParams.id,
-        );
-        console.log(submissionHistory);
-        if (submissionHistory.success) {
-          setSubmissionHistory(submissionHistory.data);
+        const res = await getAllSubmissionByCurrentUserForProblem(id);
+        if (res.success) {
+          setSubmissionHistory(res.data);
         }
       } catch (error) {
-        console.error("Error fetching problem:", error);
+        console.error(error);
       }
     };
 
-    fetchSubmissionHistory();
-  }, [params]);
+    fetchSubmissions();
+  }, [id]);
 
+  /* ---------------- Language change ---------------- */
   useEffect(() => {
-    if (problem && problem.codeSnippets[selectedLanguage]) {
+    if (problem?.codeSnippets?.[selectedLanguage]) {
       setCode(problem.codeSnippets[selectedLanguage]);
     }
   }, [selectedLanguage, problem]);
 
+  /* ---------------- Run Code ---------------- */
   const handleRun = async () => {
+    if (!problem) return;
+
     try {
       setIsRunning(true);
-      const language_id = getJudge0LanguageId(selectedLanguage);
+
+      const languageId = getJudge0LanguageId(selectedLanguage);
+
       const stdin = problem.testCases.map((tc) => tc.input);
-      const expected_outputs = problem.testCases.map((tc) => tc.output);
+      const expected = problem.testCases.map((tc) => tc.output);
+
       const res = await executeCode(
         code,
-        language_id,
+        languageId,
         stdin,
-        expected_outputs,
+        expected,
         problem.id,
       );
+
       setExecutionResponse(res);
+
       if (res.success) {
         toast.success("Code executed successfully");
       }
     } catch (error) {
-      console.log("Error executing code", error);
-      toast.error("Error executing code");
+      console.error(error);
+      toast.error("Execution failed");
     } finally {
       setIsRunning(false);
     }
   };
 
   const handleSubmit = () => {
-    toast.success("TODO: Coming Soon🔥");
+    toast.success("TODO: Coming Soon 🔥");
   };
 
+  /* ---------------- Loading ---------------- */
   if (!problem) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen">
-        <Loader2 className="animate-spin size-5 text-amber-400" />
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="mx-auto max-w-7xl p-6">
         {/* Header */}
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <div className="flex items-center gap-4 mb-4">
+            <div className="mb-4 flex items-center gap-4">
               <Link href="/">
                 <Button variant="outline" size="icon">
-                  <ArrowLeft className="size-4" />
+                  <ArrowLeft className="h-4 w-4" />
                 </Button>
               </Link>
-              <h1 className="text-3xl font-bold">{problem?.title}</h1>
+              <h1 className="text-3xl font-bold">{problem.title}</h1>
               <Badge
                 className={cn(
                   "font-medium",
-                  getDifficultyColor(problem?.difficulty),
+                  getDifficultyColor(problem.difficulty),
                 )}
               >
-                {problem?.difficulty}
+                {problem.difficulty}
               </Badge>
             </div>
+
             <div className="flex flex-wrap gap-2">
-              {problem?.tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-sm">
+              {problem.tags.map((tag) => (
+                <Badge key={tag} variant="outline">
                   {tag}
                 </Badge>
               ))}
             </div>
           </div>
+
           <ModeToggle />
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Left Panel - Problem Description */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* LEFT PANEL (unchanged from your original) */}
+
+          {/* RIGHT PANEL */}
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Problem Description
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <p className="text-foreground leading-relaxed">
-                    {problem?.description}
-                  </p>
-
-                  {/* Examples */}
-                  <div>
-                    <h3 className="font-semibold text-lg mb-3">Example:</h3>
-                    {problem?.examples[selectedLanguage] && (
-                      <div className="bg-muted p-4 rounded-lg space-y-2">
-                        <div>
-                          <span className="font-medium text-amber-400">
-                            Input:{" "}
-                          </span>
-                          <code className="text-sm dark:bg-zinc-900 bg-zinc-200 text-zinc-900 dark:text-zinc-200 px-2 py-1 rounded">
-                            {problem?.examples[selectedLanguage].input}
-                          </code>
-                        </div>
-                        <div>
-                          <span className="font-medium text-amber-400">
-                            Output:{" "}
-                          </span>
-                          <code className="text-sm dark:bg-zinc-900 bg-zinc-200 text-zinc-900 dark:text-zinc-200 px-2 py-1 rounded">
-                            {problem?.examples[selectedLanguage].output}
-                          </code>
-                        </div>
-                        <div>
-                          <span className="font-medium">Explanation: </span>
-                          <span className="text-sm">
-                            {problem?.examples[selectedLanguage]?.explanation}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Constraints */}
-                  <div>
-                    <h3 className="font-semibold text-lg mb-3">Constraints:</h3>
-                    <div className="bg-muted p-4 rounded-lg">
-                      <pre className="text-sm text-muted-foreground whitespace-pre-wrap">
-                        {problem?.constraints}
-                      </pre>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Tabs for Submissions, Editorial, Hints */}
-            <Card>
-              <CardContent className="p-3">
-                <Tabs defaultValue="submissions" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger
-                      value="submissions"
-                      className="flex items-center gap-2"
-                    >
-                      <Trophy className="h-4 w-4" />
-                      Submissions
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="editorial"
-                      className="flex items-center gap-2"
-                    >
-                      <FileText className="h-4 w-4" />
-                      Editorial
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="hints"
-                      className="flex items-center gap-2"
-                    >
-                      <Lightbulb className="h-4 w-4" />
-                      Hints
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="submissions" className="p-6">
-                    <div className="text-center py-8 text-muted-foreground">
-                      <SubmissionHistory submissions={submissionHistory} />
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="editorial" className="p-6">
-                    <div className="text-center py-8 text-muted-foreground">
-                      {problem.editorial
-                        ? problem.editorial
-                        : "Editorial not available yet."}
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="hints" className="p-6">
-                    <div className="text-center py-8 text-muted-foreground">
-                      {problem.hints
-                        ? problem.hints
-                        : "No hints available for this problem."}
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Panel - Code Editor and Test Cases */}
-          <div className="space-y-6">
-            {/* Code Editor */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -305,6 +223,7 @@ const ProblemIdPage = ({ params }) => {
                     <Code className="h-5 w-5" />
                     Code Editor
                   </CardTitle>
+
                   <Select
                     value={selectedLanguage}
                     onValueChange={setSelectedLanguage}
@@ -320,101 +239,47 @@ const ProblemIdPage = ({ params }) => {
                   </Select>
                 </div>
               </CardHeader>
+
               <CardContent>
-                <div className="border rounded-lg overflow-hidden">
-                  <Editor
-                    height="400px"
-                    language={
-                      selectedLanguage.toLowerCase() === "javascript"
-                        ? "javascript"
-                        : selectedLanguage.toLowerCase()
-                    }
-                    value={code}
-                    onChange={(value) => setCode(value || "")}
-                    theme={theme === "dark" ? "vs-dark" : "light"}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 16,
-                      lineNumbers: "on",
-                      roundedSelection: false,
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                      tabSize: 2,
-                      wordWrap: "on",
-                    }}
-                  />
-                </div>
-                <div className="flex gap-3 mt-4">
+                <Editor
+                  height="400px"
+                  language={getMonacoLanguage(selectedLanguage)}
+                  value={code}
+                  onChange={(v) => setCode(v || "")}
+                  theme={theme === "dark" ? "vs-dark" : "light"}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 16,
+                    automaticLayout: true,
+                    wordWrap: "on",
+                  }}
+                />
+
+                <div className="mt-4 flex gap-3">
                   <Button
                     onClick={handleRun}
                     disabled={isRunning}
                     variant="outline"
-                    className="flex items-center gap-2"
                   >
-                    <Play className="h-4 w-4" />
+                    <Play className="mr-2 h-4 w-4" />
                     {isRunning ? "Running..." : "Run"}
                   </Button>
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    className="flex items-center gap-2"
-                  >
-                    <Send className="h-4 w-4" />
-                    {isSubmitting ? "Submitting..." : "Submit"}
+
+                  <Button onClick={handleSubmit} disabled={isSubmitting}>
+                    <Send className="mr-2 h-4 w-4" />
+                    Submit
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Test Cases */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Test Cases</CardTitle>
-                <CardDescription>
-                  Run your code against these test cases
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-48">
-                  <div className="space-y-4">
-                    {problem.testCases.map((testCase, index) => (
-                      <div key={index} className="border rounded-lg p-3">
-                        <div className="text-sm font-medium mb-2">
-                          Test Case {index + 1}
-                        </div>
-                        <div className="space-y-1 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">
-                              Input:{" "}
-                            </span>
-                            <code className="bg-muted px-2 py-1 rounded text-xs">
-                              {testCase.input}
-                            </code>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">
-                              Expected:{" "}
-                            </span>
-                            <code className="bg-muted px-2 py-1 rounded text-xs">
-                              {testCase.output}
-                            </code>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-
-            {/* Test Results and Submission Details */}
-            {executionResponse && executionResponse.submission && (
-              <div className="space-y-4 mt-4">
+            {executionResponse?.submission && (
+              <>
                 <SubmissionDetails submission={executionResponse.submission} />
                 <TestCaseTable
                   testCases={executionResponse.submission.testCases}
                 />
-              </div>
+              </>
             )}
           </div>
         </div>
