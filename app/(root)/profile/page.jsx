@@ -11,7 +11,6 @@ import React from "react";
 const ProfilePage = async () => {
   const profileData = await getCurrentUser();
 
-  console.log(profileData);
   return (
     <div className="min-h-screen  py-32">
       <div className="container mx-auto px-4 max-w-7xl">
