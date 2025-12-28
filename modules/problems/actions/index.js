@@ -135,8 +135,8 @@ export const createPlaylist = async (title, description) => {
 
     const playlist = await db.playlist.create({
       data: {
-        title,
-        description,
+        name: title,
+        description: description || null,
         userId: dbUser.id,
       },
     });
@@ -181,7 +181,7 @@ export const addProblemToPlaylist = async (problemId, playlistId) => {
       throw new Error("Playlist not found or unauthorized");
     }
 
-    await db.playlistProblem.create({
+    await db.problemInPlaylist.create({
       data: {
         playlistId,
         problemId,
@@ -206,128 +206,156 @@ export const executeCode = async (
   expected_outputs,
   id,
 ) => {
-  const user = await currentUser();
+  try {
+    const user = await currentUser();
 
-  const dbUser = await db.user.findUnique({
-    where: { clerkId: user.id },
-  });
+    if (!user) {
+      return { success: false, error: "Unauthorized" };
+    }
 
-  if (
-    !Array.isArray(stdin) ||
-    stdin.length === 0 ||
-    !Array.isArray(expected_outputs) ||
-    expected_outputs.length !== stdin.length
-  ) {
-    return { success: false, error: "Invalid test cases" };
-  }
-
-  const submissions = stdin.map((input) => ({
-    source_code,
-    language_id,
-    stdin: input,
-    base64_encoded: false,
-    wait: false,
-  }));
-
-  const submitResponse = await submitBatch(submissions);
-  const tokens = submitResponse.map((res) => res.token);
-
-  const results = await pollBatchResults(tokens);
-
-  let allPassed = true;
-  const detailedResults = results.map((result, i) => {
-    const stdout = result.stdout?.trim() || null;
-    const expected_output = expected_outputs[i]?.trim();
-    const passed = stdout === expected_output;
-
-    if (!passed) allPassed = false;
-
-    return {
-      testCase: i + 1,
-      passed,
-      stdout,
-      expected: expected_output,
-      stderr: result.stderr || null,
-      compile_output: result.compile_output || null,
-      status: result.status.description,
-      memory: result.memory ? `${result.memory} KB` : undefined,
-      time: result.time ? `${result.time} s` : undefined,
-    };
-  });
-
-  const submission = await db.submission.create({
-    data: {
-      userId: dbUser.id,
-      problemId: id,
-      sourceCode: source_code,
-      language: getLanguageName(language_id),
-      stdin: stdin.join("\n"),
-      stdout: JSON.stringify(detailedResults.map((r) => r.stdout)),
-      stderr: detailedResults.some((r) => r.stderr)
-        ? JSON.stringify(detailedResults.map((r) => r.stderr))
-        : null,
-      compileOutput: detailedResults.some((r) => r.compile_output)
-        ? JSON.stringify(detailedResults.map((r) => r.compile_output))
-        : null,
-      status: allPassed ? "Accepted" : "Wrong Answer",
-      memory: detailedResults.some((r) => r.memory)
-        ? JSON.stringify(detailedResults.map((r) => r.memory))
-        : null,
-      time: detailedResults.some((r) => r.time)
-        ? JSON.stringify(detailedResults.map((r) => r.time))
-        : null,
-    },
-  });
-
-  // 🏆 7. Mark problem as solved if all test cases passed
-  if (allPassed) {
-    await db.problemSolved.upsert({
-      where: {
-        userId_problemId: { userId: dbUser.id, problemId: id },
-      },
-      update: {},
-      create: { userId: dbUser.id, problemId: id },
+    const dbUser = await db.user.findUnique({
+      where: { clerkId: user.id },
     });
+
+    if (!dbUser) {
+      return { success: false, error: "User not found" };
+    }
+
+    if (
+      !Array.isArray(stdin) ||
+      stdin.length === 0 ||
+      !Array.isArray(expected_outputs) ||
+      expected_outputs.length !== stdin.length
+    ) {
+      return { success: false, error: "Invalid test cases" };
+    }
+
+    const submissions = stdin.map((input) => ({
+      source_code,
+      language_id,
+      stdin: input,
+      base64_encoded: false,
+      wait: false,
+    }));
+
+    const submitResponse = await submitBatch(submissions);
+    const tokens = submitResponse.map((res) => res.token);
+
+    const results = await pollBatchResults(tokens);
+
+    let allPassed = true;
+    const detailedResults = results.map((result, i) => {
+      const stdout = result.stdout?.trim() || null;
+      const expected_output = expected_outputs[i]?.trim();
+      const passed = stdout === expected_output;
+
+      if (!passed) allPassed = false;
+
+      return {
+        testCase: i + 1,
+        passed,
+        stdout,
+        expected: expected_output,
+        stderr: result.stderr || null,
+        compile_output: result.compile_output || null,
+        status: result.status.description,
+        memory: result.memory ? `${result.memory} KB` : undefined,
+        time: result.time ? `${result.time} s` : undefined,
+      };
+    });
+
+    const submission = await db.submission.create({
+      data: {
+        userId: dbUser.id,
+        problemId: id,
+        sourceCode: source_code,
+        language: getLanguageName(language_id),
+        stdin: stdin.join("\n"),
+        stdout: JSON.stringify(detailedResults.map((r) => r.stdout)),
+        stderr: detailedResults.some((r) => r.stderr)
+          ? JSON.stringify(detailedResults.map((r) => r.stderr))
+          : null,
+        compileOutput: detailedResults.some((r) => r.compile_output)
+          ? JSON.stringify(detailedResults.map((r) => r.compile_output))
+          : null,
+        status: allPassed ? "Accepted" : "Wrong Answer",
+        memory: detailedResults.some((r) => r.memory)
+          ? JSON.stringify(detailedResults.map((r) => r.memory))
+          : null,
+        time: detailedResults.some((r) => r.time)
+          ? JSON.stringify(detailedResults.map((r) => r.time))
+          : null,
+      },
+    });
+
+    // Mark problem as solved if all test cases passed
+    if (allPassed) {
+      await db.problemSolved.upsert({
+        where: {
+          userId_problemId: { userId: dbUser.id, problemId: id },
+        },
+        update: {},
+        create: { userId: dbUser.id, problemId: id },
+      });
+    }
+
+    const testCaseResults = detailedResults.map((result) => ({
+      submissionId: submission.id,
+      testCase: result.testCase,
+      passed: result.passed,
+      stdout: result.stdout,
+      expected: result.expected,
+      stderr: result.stderr,
+      compileOutput: result.compile_output,
+      status: result.status,
+      memory: result.memory,
+      time: result.time,
+    }));
+
+    await db.testCaseResult.createMany({ data: testCaseResults });
+
+    const submissionWithTestCases = await db.submission.findUnique({
+      where: { id: submission.id },
+      include: { testCases: true },
+    });
+
+    return { success: true, submission: submissionWithTestCases };
+  } catch (error) {
+    console.error("❌ Error executing code:", error);
+    return { success: false, error: "Failed to execute code" };
   }
-
-  const testCaseResults = detailedResults.map((result) => ({
-    submissionId: submission.id,
-    testCase: result.testCase,
-    passed: result.passed,
-    stdout: result.stdout,
-    expected: result.expected,
-    stderr: result.stderr,
-    compileOutput: result.compile_output,
-    status: result.status,
-    memory: result.memory,
-    time: result.time,
-  }));
-
-  await db.testCaseResult.createMany({ data: testCaseResults });
-
-  const submissionWithTestCases = await db.submission.findUnique({
-    where: { id: submission.id },
-    include: { testCases: true },
-  });
-
-  return { success: true, submission: submissionWithTestCases };
 };
 
 export const getAllSubmissionByCurrentUserForProblem = async (problemId) => {
-  const user = await currentUser();
-  const userId = await db.user.findUnique({
-    where: {
-      clerkId: user.id,
-    },
-    select: {
-      id: true,
-    },
-  });
-  const submissions = await db.submission.findMany({
-    where: {
-      problemId: problemId,
-      userId: userId.id,
-    },
-  });
-  return { success: true, data: submissions };
+  try {
+    const user = await currentUser();
+
+    if (!user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const dbUser = await db.user.findUnique({
+      where: {
+        clerkId: user.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!dbUser) {
+      return { success: false, error: "User not found" };
+    }
+
+    const submissions = await db.submission.findMany({
+      where: {
+        problemId: problemId,
+        userId: dbUser.id,
+      },
+    });
+    return { success: true, data: submissions };
+  } catch (error) {
+    console.error("❌ Error fetching submissions:", error);
+    return { success: false, error: "Failed to fetch submissions" };
+  }
 };

@@ -163,8 +163,43 @@ const ProblemIdPage = ({ params }) => {
     }
   };
 
-  const handleSubmit = () => {
-    toast.success("TODO: Coming Soon 🔥");
+  const handleSubmit = async () => {
+    if (!problem) return;
+
+    try {
+      setIsSubmitting(true);
+
+      const languageId = getJudge0LanguageId(selectedLanguage);
+
+      const stdin = problem.testCases.map((tc) => tc.input);
+      const expected = problem.testCases.map((tc) => tc.output);
+
+      const res = await executeCode(
+        code,
+        languageId,
+        stdin,
+        expected,
+        problem.id,
+      );
+
+      setExecutionResponse(res);
+
+      if (res.success) {
+        const allPassed = res.submission?.status === "Accepted";
+        if (allPassed) {
+          toast.success("All test cases passed! 🎉");
+        } else {
+          toast.error("Some test cases failed");
+        }
+      } else {
+        toast.error(res.error || "Submission failed");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Submission failed");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   /* ---------------- Loading ---------------- */
@@ -212,9 +247,98 @@ const ProblemIdPage = ({ params }) => {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* LEFT PANEL (unchanged from your original) */}
+          {/* LEFT PANEL — Problem Description */}
+          <div className="space-y-6">
+            {/* Description */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Description
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                  {problem.description}
+                </p>
+              </CardContent>
+            </Card>
 
-          {/* RIGHT PANEL */}
+            {/* Examples */}
+            {problem.examples && problem.examples[selectedLanguage] && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Code className="h-5 w-5" />
+                    Example
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      Input:
+                    </p>
+                    <pre className="bg-muted p-3 rounded-md text-sm font-mono">
+                      {problem.examples[selectedLanguage].input}
+                    </pre>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      Output:
+                    </p>
+                    <pre className="bg-muted p-3 rounded-md text-sm font-mono">
+                      {problem.examples[selectedLanguage].output}
+                    </pre>
+                  </div>
+                  {problem.examples[selectedLanguage].explanation && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">
+                        Explanation:
+                      </p>
+                      <p className="text-sm leading-relaxed">
+                        {problem.examples[selectedLanguage].explanation}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Constraints */}
+            {problem.constraints && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Constraints
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <pre className="text-sm whitespace-pre-wrap">
+                    {problem.constraints}
+                  </pre>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Hints */}
+            {problem.hints && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Lightbulb className="h-5 w-5" />
+                    Hints
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm leading-relaxed">{problem.hints}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Submission History */}
+            <SubmissionHistory submissions={submissionHistory} />
+          </div>
           <div className="space-y-6">
             <Card>
               <CardHeader>
