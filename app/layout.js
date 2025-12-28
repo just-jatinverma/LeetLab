@@ -16,8 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Leetcode Clone",
-  description: "Clone of Leetcode",
+  title: "CodeArena - Practice Coding Problems",
+  description:
+    "Practice coding problems, track your progress, and sharpen your programming skills with an interactive code editor and real-time feedback.",
 };
 
 export default function RootLayout({ children }) {
