@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "CodeArena - Practice Coding Problems",
+  title: "LeetLab - Practice Coding Problems",
   description:
     "Practice coding problems, track your progress, and sharpen your programming skills with an interactive code editor and real-time feedback.",
 };
