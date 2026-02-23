@@ -78,7 +78,7 @@ const getMonacoLanguage = (language) => {
 /* ---------------- Page ---------------- */
 
 const ProblemIdPage = ({ params }) => {
-  const { id } = params;
+  const { id } = React.use(params);
   const { theme } = useTheme();
 
   const [problem, setProblem] = useState(null);
